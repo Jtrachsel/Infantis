@@ -1,9 +1,10 @@
 library(tidyverse)
 library(usethis)
 library(pdtools)
+library(future)
+future::plan(multisession, workers=4)
 
 # remotes::install_github('jtrachsel/pdtools', ref = 'dev', force = TRUE)
-# setwd('/project/fsepru113/trachsel/Infantis')
 # usethis::proj_sitrep()
 
 use_directory('./metadata/')
@@ -22,9 +23,13 @@ if (length(PDG_files) == 0){
   download_most_recent_complete('Salmonella', folder_prefix = './metadata/')
   PDG_files <- list.files(path = './metadata', pattern = 'PDG', full.names = T)
 }
+
+
 PDG_files <- list.files(path = './metadata', pattern = 'PDG', full.names = T)
 PDG_files <- sort(PDG_files, decreasing = TRUE)
 PDG_files
+
+
 all_sal <- 
   read_tsv(PDG_files[2]) %>% 
   left_join(read_tsv(PDG_files[1])) %>% 
@@ -51,15 +56,6 @@ country_data <- Infantis_related %>% extract_country()
 agency_data <- Infantis_related %>% extract_collection_agency()
 
 
-
-# agency_data$collection_agency %>% table()
-# year_data$Year %>% table()
-# country_data$country %>% table()
-# host_data$ag_match %>% table()
-# these <- host_data %>% filter(ag_match == 'Bovine_Chicken') %>% pull(target_acc)
-# LOOK <- Infantis_related %>% filter(target_acc %in% these)
-
-
 Infantis_metadata <- 
   Infantis_related %>% 
   left_join(year_data) %>% 
@@ -73,10 +69,6 @@ Infantis_metadata <-
   make_dest_paths(type = 'gff', dest_dir = './assemblies/') %>% 
   write_tsv('./metadata/Infantis_metadata.tsv')
 
-#Infantis_metadata %>% count(asm_acc) %>% arrange(desc(n))
-
-library(future)
-future::plan(multisession, workers=4)
 
 Infantis_metadata <- 
   Infantis_metadata %>% 
@@ -96,31 +88,13 @@ Infantis_metadata <-
 Infantis_metadata %>% count(gff_exists)
 
 
-
-
-
-
-
-
 ### gunzip all files ###
 
 # remove those that dont gunzip properly
 
 
-# LOOK <- Infantis_metadata %>% filter(!gff_exists)
 
-# 
-# extract_computed_serotype <- function(data){
-#   mutate(SERO=sub('serotype=(.*),antigen_formula=(.*)','\\1',computed_types), 
-#          ant_form=sub('serotype=(.*),antigen_formula=(.*)','\\2',computed_types))
-# }
-# 
-# extract_continent <- function(data){
-#   
-# }
-
-
-### add referene genome download here
+### add reference genome download here
 
 
 

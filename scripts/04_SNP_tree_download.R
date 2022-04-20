@@ -35,6 +35,13 @@ get_PDG_version('metadata')
 
 infmeta <- read_tsv('metadata/Infantis_metadata.tsv')
 
+
+
+
+
+#### ADD TO TUTORIAL ###
+
+
 SNP_tree_download_info <- 
   infmeta %>% 
   group_by(PDS_acc) %>% 
