@@ -4,7 +4,8 @@ library(cowplot)
 library(countrycode)
 library(pdtools)
 
-infmeta <- read_tsv('metadata/Infantis_metadata.tsv') %>% 
+infmeta <-
+  read_tsv('metadata/Infantis_metadata.tsv') %>% 
   left_join(read_tsv('output/pESI_presence.tsv')) %>% 
   left_join(read_tsv('output/phydelity_clusters.tsv')) %>% 
   mutate(pESI_presence = factor(pESI_presence, levels = c('absent', 'partial','full')))
