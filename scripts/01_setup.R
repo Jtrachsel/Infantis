@@ -80,12 +80,12 @@ Infantis_metadata %>% count(fna_exists)
 
 ### The 'type' argument of download_genomes doesnt work right,
 ### checks for 'fna' files even though gff specified.
-Infantis_metadata <- 
-  Infantis_metadata %>% 
-  download_genomes(type='gff', PARALLEL = TRUE) %>% 
-  write_tsv('./metadata/Infantis_metadata.tsv')
-  
-Infantis_metadata %>% count(gff_exists)
+# Infantis_metadata <- 
+#   Infantis_metadata %>% 
+#   download_genomes(type='gff', PARALLEL = TRUE) %>% 
+#   write_tsv('./metadata/Infantis_metadata.tsv')
+#   
+# Infantis_metadata %>% count(gff_exists)
 
 
 ### gunzip all files ###

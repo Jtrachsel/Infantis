@@ -130,7 +130,39 @@ pESI_contigs$pESI_contigs
 map2(.x=pESI_contigs$pESI_contigs,
      .y=pESI_contigs$contigs_path, .f = ~writeXStringSet(.x, .y))
 
-
+### this garbage down here needs to be run after the 08 plots... script
+# Shawn wanted pESI negative isolates, these 10 isoaltes are the only turkey
+# FSIS Infantis pESI negative isolates.  
+# each has small streches of DNA that match the pESI plasmid sequece,
+# this is supposed to extract those sequences
   
+LOOK <- read_paf('pESI_screen/GCA_010600745.1.PAF')
 
+LOOK <- LOOK %>%
+  filter_secondary_alignments() %>%
+  filter(alen > 1000 & mapq > 40) %>%
+  unique()
 
+LOOK$qstart
+LOOK <- 
+  turkey_NOpESI_FSIS %>%
+  select(asm_acc) %>% 
+  mutate(paf_path=paste0('./pESI_screen/', asm_acc, '.PAF'), 
+         PAF=map(.x=paf_path,
+                 .f = ~read_paf(.x) %>% filter_secondary_alignments() %>%
+                   filter(alen > 1000 & mapq > 40) %>%
+                   unique()), 
+         qname=map(.x=PAF, .f=~.x %>% pull(qname)), 
+         qstart=map(.x=PAF, .f=~.x %>% pull(qstart)), 
+         qend=map(.x=PAF, .f=~.x %>% pull(qend))) %>% 
+  mutate(genome_seq_path=paste0('assemblies/', asm_acc, '.fna'), 
+         genome_seq=map(.x=genome_seq_path, readDNAStringSet),
+         pesi_contigs=map2(.x=genome_seq, .y=qname,.f=~.x[.y]), 
+         pesi_seqs=pmap(.l = list(pesi_contigs, qstart, qend), 
+                        ~subseq(x = ..1, start = ..2, end = ..3)))
+
+LOOK %>%
+  pull(pesi_seqs) %>%
+  DNAStringSetList() %>% 
+  unlist() %>% 
+  writeXStringSet('FSIS_infantis_turkey_NOpESI_matches.fna')

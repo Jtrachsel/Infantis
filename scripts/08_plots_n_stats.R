@@ -11,6 +11,17 @@ infmeta <-
   mutate(pESI_presence = factor(pESI_presence, levels = c('absent', 'partial','full')))
 
 
+infmeta %>%
+  count(phy_clust, pESI_presence) %>%
+  group_by(phy_clust) %>% tally() %>% 
+  filter(n !=1) %>% 
+  arrange(desc(n))
+
+
+
+
+
+
 country_vector
 
 infmeta$continent <- 
@@ -30,7 +41,7 @@ infmeta <-
   mutate(PDS_lump=fct_lump_n(f = PDS_acc, n = 8), 
          ag_match_lump=fct_lump_n(f=ag_match, n=6)) 
 
-
+infmeta %>% write_tsv('output/08_metadata.tsv')
 # set SNP cluster levels
 PDS_colors <- brewer.pal(9, 'Set1')
 names(PDS_colors) <- infmeta$PDS_lump %>% levels()
@@ -552,6 +563,12 @@ list(P_inf_1,
 
 
 infantis_plots %>% write_rds('output/infantis_plots.rds')
+
+
+
+######
+
+
 # 
 # ### should run stats against PESI pres, 
 # glm(family='binomial', pesi_prez ~ Year + ag_host + country, data=meta)
