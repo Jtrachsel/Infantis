@@ -5,7 +5,7 @@ library(tictoc)
 library(furrr)
 library(cowplot)
 
-plan(multisession, workers = 16)  
+plan(multisession, workers = 32)  
 # pafr::plot_coverage()
 
 # extract only the pESI plasmid sequence from a well known Infantis assembly
@@ -13,9 +13,11 @@ FSIS <- readDNAStringSet('reference_genomes/FSIS1502916.fna')
 FSIS['FSIS1502916_2'] %>% writeXStringSet('./reference_genomes/pESI.fna')
 
 ## ran these commands to map all contigs to the pESI plasmid sequence:
-# mkdir pESI_screen
-#parallel -j 35 'minimap2 -x asm5 -t 1 -o ./pESI_screen/{/.}.PAF ./reference_genomes/pESI.fna {}' ::: ./assemblies/*fna
-
+# mkdir -p pESI_screen
+# parallel -j 35 'minimap2 -x asm5 -t 1 -o ./pESI_screen/{/.}.PAF ./reference_genomes/pESI.fna {}' ::: ./assemblies/*fna
+# mkdir -p pESI_screen2
+# system("blastn -query reference_genomes/pESI_CDC_replicon.fna -subject reference_genomes/pESI.fna -outfmt 6")
+# parallel -j 35 'blastn -query reference_genomes/pESI_CDC_replicon.fna -subject {} -outfmt 6 > ./pESI_screen2/{/.}.blast' ::: ./assemblies/*fna
 
 return_percent_pESI <- function(path){
   
@@ -30,6 +32,52 @@ return_percent_pESI <- function(path){
          perc_pESI=sum(prim_alignment$nmatch) / 322518 * 100)
   
 }
+
+blast_col_names <- str_split('qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore', pattern = ' ') %>% 
+  unlist()
+
+
+return_pESI_replicon_blast <- function(path){
+  blast_col_names <- str_split('qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore', pattern = ' ') %>% 
+    unlist()
+  # browser()
+  BLAST <- read_tsv(path,
+                    col_names = blast_col_names, 
+                    col_types=c('ccdddddddddd'))
+  BLAST <- 
+    BLAST %>% filter(pident > 90 & length > 500)
+  
+  res <- tibble(asm_acc=sub('pESI_screen2/(.*).blast','\\1',path), 
+                pESI_replicon=ifelse(nrow(BLAST) > 0, 'present', 'absent'))
+  return(list(res, BLAST))
+  
+}
+
+# return_pESI_replicon_blast('pESI_screen2/GCA_006289335.1.blast')
+
+list.files('pESI_screen2', pattern = '*.blast', full.names = TRUE)
+TIC <- tic()
+
+pESI_replicon_files <- list.files('pESI_screen2', pattern = 'blast', full.names = T)
+pESI_replicon_presence <- future_map(.x =pESI_replicon_files, .f = ~return_pESI_replicon_blast(.x) ) #%>%
+  # bind_rows()
+replicon_blasts <-
+  pESI_replicon_presence %>% 
+  map(2) %>% 
+  bind_rows() %>% 
+  mutate(genome=sub('(GCA_.*)_[0-9]+','\\1',sseqid))
+
+
+
+pESI_replicon_presence <- 
+  pESI_replicon_presence %>% 
+  map(1) %>%
+  bind_rows()
+
+TOC <- toc()
+
+
+
 # tst_paf <- read_paf('pESI_screen/GCA_000230875.1.PAF')
 
 # plot_coverage(tst_paf)
@@ -38,7 +86,7 @@ return_percent_pESI <- function(path){
 
 
 # test it out...
-return_percent_pESI('pESI_screen/GCA_000230875.1.PAF')
+# return_percent_pESI('pESI_screen/GCA_000230875.1.PAF')
 
 # run it on all
 # about a minute
@@ -50,10 +98,12 @@ pESI_presence <- future_map(.x =pESI_screen_files, .f = ~return_percent_pESI(.x)
 
 TOC <- toc()
 
+pESI_replicon_presence <- pESI_replicon_presence %>% left_join(pESI_presence)
 
-pESI_presence %>% 
-  filter(perc_pESI > .5) %>%
-  ggplot(aes(x=perc_pESI)) +
+
+pESI_replicon_presence %>% 
+  # filter(perc_pESI > .5) %>%
+  ggplot(aes(x=perc_pESI, fill=pESI_replicon)) +
   geom_histogram(bins=50) + 
   geom_vline(xintercept = 1) + 
   # annotate(geom='text', label='1%', x=5, y=5000) + 
@@ -63,11 +113,52 @@ pESI_presence %>%
   geom_vline(xintercept = 75) +
   annotate(geom='text', label='Full', x=100, y=1000, size=5) + 
   theme_half_open() + 
-  cowplot::background_grid()
+  cowplot::background_grid() + 
+  ylab('number of genomes') + 
+  xlab('percent of reference pESI sequence present')
+
+ggsave('pESI_presence_histogram_with_replicon_presence.jpeg', bg='white')
+pESI_replicon_presence %>% 
+  # filter(perc_pESI > .5) %>%
+  ggplot(aes(x=perc_pESI, fill=pESI_replicon)) +
+  geom_histogram(bins=50) + 
+  # geom_vline(xintercept = 1) + 
+  # annotate(geom='text', label='1%', x=5, y=5000) + 
+  # geom_vline(xintercept = 25) +
+  # geom_vline(xintercept = 75) +
+  # annotate(geom='text', label='Partial', x=45, y=1000, size=5)+
+  # geom_vline(xintercept = 75) +
+  # annotate(geom='text', label='Full', x=100, y=1000, size=5) + 
+  theme_half_open() + 
+  cowplot::background_grid() + 
+  ylab('number of genomes') + 
+  xlab('percent of reference pESI sequence present') +
+  xlim(0,45) +
+  ylim(0,250)
+
+ggsave('pESI_presence_zoom.jpeg', bg='white')
+
+# two problems 
+# 1) pESI associated sequences present but replicon absent
+# 2) pESI replicon present but very little other pESI associated sequence
+
+
+no_replicon_but_lots_of_pESI_sequence <- 
+  pESI_replicon_presence %>%
+  filter(pESI_replicon == 'absent' & perc_pESI > 1) %>% 
+  arrange(desc(perc_pESI)) %>% 
+  # slice_head(n=10)
+  write_tsv('pESI_replicon_absent_lots_of_sequence.tsv')
 
 
 
-
+replicon_but_little_sequence <- 
+  pESI_replicon_presence %>%
+  filter(pESI_replicon == 'present') %>% 
+  filter(perc_pESI < 35) %>% 
+  arrange(perc_pESI) %>%
+  # slice_head(n=10)
+  write_tsv('pESI_replicon_present_little_sequence.tsv')
 
 pESI_presence <- 
   pESI_presence %>%

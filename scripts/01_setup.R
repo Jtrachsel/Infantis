@@ -2,7 +2,19 @@ library(tidyverse)
 library(usethis)
 library(pdtools)
 library(future)
-future::plan(multisession, workers=4)
+library(R.utils)
+#
+
+if (future::supportsMulticore()){
+  
+  future::plan(multicore, workers=4)
+  
+} else {
+  
+  future::plan(multisession, workers=4)
+  
+}
+
 
 # remotes::install_github('jtrachsel/pdtools', ref = 'dev', force = TRUE)
 # usethis::proj_sitrep()
@@ -13,9 +25,11 @@ use_directory('./output/')
 use_directory('./scripts/')
 
 
-if (!file.exists('./metadata/assembly_summary.txt')){
-  gbk <- download_gbk_assembly_summary('./metadata/assembly_summary.txt')
-}
+gbk <- download_gbk_assembly_summary('./metadata/assembly_summary.txt')
+
+# if (!file.exists('./metadata/assembly_summary.txt')){
+#   gbk <- download_gbk_assembly_summary('./metadata/assembly_summary.txt')
+# }
 
 PDG_files <- list.files(path = './metadata', pattern = 'PDG', full.names = T)
 
@@ -72,12 +86,13 @@ Infantis_metadata <-
 
 Infantis_metadata <- 
   Infantis_metadata %>% 
-  download_genomes(type = 'fna', PARALLEL = TRUE) %>% 
+  # download_genomes(type = 'fna', PARALLEL = TRUE) %>% 
+  download_genomes(type = 'fna') %>% 
   write_tsv('./metadata/Infantis_metadata.tsv')
 
 
 Infantis_metadata %>% count(fna_exists)
-
+Infantis_metadata %>% filter(!fna_exists) %>% select(contains('fna'))
 ### The 'type' argument of download_genomes doesnt work right,
 ### checks for 'fna' files even though gff specified.
 # Infantis_metadata <- 
@@ -89,9 +104,11 @@ Infantis_metadata %>% count(fna_exists)
 
 
 ### gunzip all files ###
-
+gzfiles <- list.files('./assemblies/', pattern = '*gz', full.names = TRUE)
+gunzip_results <- furrr::future_map(.x = gzfiles, .f = ~gunzip(.x))
 # remove those that dont gunzip properly
-
+gzfiles <- list.files('./assemblies/', pattern = '*gz')
+print(gzfiles)
 
 
 ### add reference genome download here
